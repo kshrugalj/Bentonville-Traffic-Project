@@ -1,30 +1,44 @@
 # Traffic LOS Analysis
 
-This repository computes hourly Level of Service (LOS) per intersection (`INTID`) from 15-minute turning movement data, summarizes worst/best times, and generates plots. Terminal output is designed for clear, comprehensive review.
+
+## Setup (macOS, zsh)
+```zsh
+python3 -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+## Usage
+# Traffic LOS Analysis
+
+This repository computes hourly Level of Service (LOS) per intersection (`INTID`) from 15-minute turning movement data, and provides scripts to summarize worst/best times and average scores. All scripts print clear tables to the terminal and save results to CSV.
 
 ## Components
-- `los_calc.py`: Ingests raw CSV, normalizes timestamps, computes hourly LOS per `INTID`, prints all rows, saves `los_results.csv`.
-- `worst_los_summary.py`: Summarizes worst LOS times per `INTID` (max severity), with compact date/hour ranges; saves `worst_los_summary.csv`.
-- `best_los_summary.py`: Summarizes best LOS times per `INTID` (min severity), with compact date/hour ranges; saves `best_los_summary.csv`.
+- `los_calc.py`: Ingests the raw CSV, normalizes timestamps, computes hourly LOS per `INTID`, prints all rows, and saves `los_results.csv`.
+- `worst_los_summary.py`: Summarizes worst LOS times per `INTID`, grouping hours into compact date ranges; saves `worst_los_summary.csv`.
+- `best_los_summary.py`: Summarizes best LOS times per `INTID`, grouping hours into compact date ranges; saves `best_los_summary.csv`.
+- `average_los_by_intersection.py`: Averages hourly LOS scores per `INTID` (no rounding), maps to letters with stricter bands, and saves `average_los_by_intersection.csv`.
 
 ## Input CSV Requirements
-- Structure: Two header note lines followed by header `DATE,TIME,INTID,NBL,NBT,NBR,SBL,SBT,SBR,EBL,EBT,EBR,WBL,WBT,WBR`.
-- Trailing commas: Allowed; unnamed extra columns are dropped automatically.
-- `TIME` normalization: Excel-style values like `="0000"` are converted to `HH:MM`.
-- Robust header detection: Loader skips lines before the header and reads with `index_col=False` to preserve columns.
+- Header row: `DATE,TIME,INTID,NBL,NBT,NBR,SBL,SBT,SBR,EBL,EBT,EBR,WBL,WBT,WBR` (two note lines above are allowed).
+- Trailing commas: Allowed; unnamed extra columns are dropped.
+- `TIME` normalization: Excel-style values (e.g., `="0000"`) are converted to `HH:MM`.
+- Robust header detection ensures only pre-header lines are skipped; `index_col=False` preserves all columns.
 
 ## LOS Computation
 - Movements aggregated: `NBL,NBT,NBR,SBL,SBT,SBR,EBL,EBT,EBR,WBL,WBT,WBR`.
-- Per 15-min interval:
+- Per 15-minute interval:
   - `total_volume` = sum of movement columns
-  - LOS thresholds (strict) per 15-min total: A ≤ 100, B ≤ 200, C ≤ 350, D ≤ 500, E ≤ 700, F > 700
+  - Strict thresholds (15-min totals) to increase grade variety: A ≤ 100, B ≤ 200, C ≤ 350, D ≤ 500, E ≤ 700, F > 700
   - Score mapping: A=1, B=2, C=3, D=4, E=5, F=6
 - Hourly per `INTID`:
-  - Average the four 15-min scores for that hour
-  - Round to nearest integer and map back to LOS
-- Sorting: Output rows are ordered by `INTID` then `hour`.
+  - Average the four 15-min scores for that hour and round to nearest integer, then map to LOS
+  - Output rows are ordered by `INTID` then `hour`
+- Intersection averages (across hours):
+  - Average hourly scores per `INTID` with no rounding; letter mapping uses harsher bands: A < 1.2, B < 2.0, C < 2.8, D < 3.6, E < 4.4, else F
 
-## Setup (macOS, zsh)
+## Setup
 ```zsh
 python3 -m venv .venv
 source .venv/bin/activate
@@ -45,17 +59,20 @@ python worst_los_summary.py --source los_results.csv --out worst_los_summary.csv
 ```zsh
 python best_los_summary.py --source los_results.csv --out best_los_summary.csv --top 10
 ```
- 
+- Average hourly score per intersection:
+```zsh
+python average_los_by_intersection.py --source los_results.csv --out average_los_by_intersection.csv
+```
 
 ## Outputs
-- Terminal (hourly LOS): `INTID <id> | <hour> | volume=<sum> | LOS=<letter> | score=<1-6>`.
+- Terminal (hourly LOS): `INTID <id> | <hour> | volume=<sum> | LOS=<letter> | score=<1-6>`
 - Files:
   - `los_results.csv`: `INTID,hour,total_volume,LOS,los_score`
   - `worst_los_summary.csv`: worst LOS per `INTID` with compact hour ranges
   - `best_los_summary.csv`: best LOS per `INTID` with compact hour ranges
- 
+  - `average_los_by_intersection.csv`: average hourly score and letter per `INTID`
 
 ## Notes & Practices
-- Parsing resilience: Explicit format parsing with safe fallbacks; warnings suppressed only on fallback path.
-- Data hygiene: Unnamed columns from trailing commas are dropped; movement columns are numeric-coerced.
-- Extensibility: Thresholds can be parameterized if needed (e.g., via CLI); hourly aggregation can switch from mean to max to emphasize peak severity.
+- Parsing resilience: Explicit format parsing with safe fallbacks; fallback warnings suppressed only when necessary.
+- Data hygiene: Unnamed columns from trailing commas are dropped; movement columns coerced to numeric.
+- Extensibility: Thresholds and average-to-letter bands can be parameterized via CLI; hourly aggregation can switch from mean to max if emphasizing peak conditions is desired.
