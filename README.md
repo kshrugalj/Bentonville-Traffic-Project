@@ -1,33 +1,31 @@
-# Traffic LOS (Hourly by Intersection)
+# Traffic LOS Analysis
 
-This project computes hourly Level of Service (LOS) per intersection (`INTID`) from 15-minute turning movement counts, and provides plots. Terminal output prints all hourly rows, grouped by `INTID` then `hour`.
+This repository computes hourly Level of Service (LOS) per intersection (`INTID`) from 15-minute turning movement data, summarizes worst/best times, and generates plots. Terminal output is designed for clear, comprehensive review.
 
-## Scripts
-- `los_calc.py`: Loads the CSV, computes hourly LOS per `INTID`, prints all rows, and saves results to CSV.
-- `los_plots.py`: Generates plots from the same CSV (hourly total volume, daily average volume, and a heatmap).
+## Components
+- `los_calc.py`: Ingests raw CSV, normalizes timestamps, computes hourly LOS per `INTID`, prints all rows, saves `los_results.csv`.
+- `worst_los_summary.py`: Summarizes worst LOS times per `INTID` (max severity), with compact date/hour ranges; saves `worst_los_summary.csv`.
+- `best_los_summary.py`: Summarizes best LOS times per `INTID` (min severity), with compact date/hour ranges; saves `best_los_summary.csv`.
 
-## Input CSV format
-- File includes two header note lines, then the header row: `DATE,TIME,INTID,NBL,NBT,NBR,SBL,SBT,SBR,EBL,EBT,EBR,WBL,WBT,WBR`.
-- Data rows may have a trailing comma; the code drops any unnamed extra column.
-- `TIME` values can be Excel-style (e.g., `="0000"`, `="0015"`); the code normalizes to `HH:MM`.
-- The loader finds the header line, skips only lines before it, and reads with `index_col=False` to ensure `DATE` isn’t used as an index.
+## Input CSV Requirements
+- Structure: Two header note lines followed by header `DATE,TIME,INTID,NBL,NBT,NBR,SBL,SBT,SBR,EBL,EBT,EBR,WBL,WBT,WBR`.
+- Trailing commas: Allowed; unnamed extra columns are dropped automatically.
+- `TIME` normalization: Excel-style values like `="0000"` are converted to `HH:MM`.
+- Robust header detection: Loader skips lines before the header and reads with `index_col=False` to preserve columns.
 
-## LOS logic
-- Movement columns: `NBL,NBT,NBR,SBL,SBT,SBR,EBL,EBT,EBR,WBL,WBT,WBR`.
-- Per 15-minute interval:
-  - `total_volume = sum(movement columns)`
-  - LOS by volume threshold:
-    - A ≤ 600, B ≤ 900, C ≤ 1200, D ≤ 1500, E ≤ 1800, F > 1800
-  - Map LOS to score: A=1, B=2, C=3, D=4, E=5, F=6
-- Per hour per `INTID`:
-  - Average the four 15-minute `los_score` values in that hour
-  - Round to nearest integer; map back to LOS letter
-- Output is sorted by `INTID`, then `hour`.
+## LOS Computation
+- Movements aggregated: `NBL,NBT,NBR,SBL,SBT,SBR,EBL,EBT,EBR,WBL,WBT,WBR`.
+- Per 15-min interval:
+  - `total_volume` = sum of movement columns
+  - LOS thresholds (strict) per 15-min total: A ≤ 100, B ≤ 200, C ≤ 350, D ≤ 500, E ≤ 700, F > 700
+  - Score mapping: A=1, B=2, C=3, D=4, E=5, F=6
+- Hourly per `INTID`:
+  - Average the four 15-min scores for that hour
+  - Round to nearest integer and map back to LOS
+- Sorting: Output rows are ordered by `INTID` then `hour`.
 
 ## Setup (macOS, zsh)
-
 ```zsh
-cd /Users/kshrugal/Desktop/Traffic_Los
 python3 -m venv .venv
 source .venv/bin/activate
 pip install --upgrade pip
@@ -35,26 +33,29 @@ pip install -r requirements.txt
 ```
 
 ## Usage
-
-Compute hourly LOS and print all rows:
+- Compute hourly LOS:
 ```zsh
 python los_calc.py --csv "VehicleVolume_1Wal_2Hwy_4Hwy_11162025_11222025.csv" --out los_results.csv
 ```
-
-Generate plots:
+- Worst summary (compact ranges + table):
 ```zsh
-python los_plots.py --csv "VehicleVolume_1Wal_2Hwy_4Hwy_11162025_11222025.csv" --plot-prefix "los"
+python worst_los_summary.py --source los_results.csv --out worst_los_summary.csv --top 10
 ```
+- Best summary (compact ranges + table):
+```zsh
+python best_los_summary.py --source los_results.csv --out best_los_summary.csv --top 10
+```
+ 
 
 ## Outputs
-- Terminal: All hourly rows printed as `INTID <id> | <hour> | volume=<sum> | LOS=<letter> | score=<1-6>`.
-- File: `los_results.csv` with columns `INTID,hour,total_volume,LOS,los_score`.
-- Plots:
-  - `los_hourly_volume.png` — Hourly total volume per `INTID`
-  - `los_daily_avg_volume.png` — Average daily total volume per `INTID`
-  - `los_volume_heatmap.png` — Heatmap of total volume (INTID × hour)
+- Terminal (hourly LOS): `INTID <id> | <hour> | volume=<sum> | LOS=<letter> | score=<1-6>`.
+- Files:
+  - `los_results.csv`: `INTID,hour,total_volume,LOS,los_score`
+  - `worst_los_summary.csv`: worst LOS per `INTID` with compact hour ranges
+  - `best_los_summary.csv`: best LOS per `INTID` with compact hour ranges
+ 
 
-## Notes
-- If parsing fails, verify the CSV has the described header and that the first two lines are notes.
-- `TIME` normalization converts Excel formulas to `HH:MM` before datetime parsing.
-- We use explicit datetime formats (`%m/%d/%Y %H:%M`) and only fall back to generic parsing if needed.
+## Notes & Practices
+- Parsing resilience: Explicit format parsing with safe fallbacks; warnings suppressed only on fallback path.
+- Data hygiene: Unnamed columns from trailing commas are dropped; movement columns are numeric-coerced.
+- Extensibility: Thresholds can be parameterized if needed (e.g., via CLI); hourly aggregation can switch from mean to max to emphasize peak severity.
