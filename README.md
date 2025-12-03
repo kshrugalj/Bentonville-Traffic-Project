@@ -1,52 +1,60 @@
-# Traffic LOS Analysis
+# Traffic LOS (Hourly by Intersection)
 
-This program analyzes a CSV of traffic counts and computes per-hour Level of Service (LOS) tiers for each lane using a simple v/c (volume-to-capacity) formula.
+This project computes hourly Level of Service (LOS) per intersection (`INTID`) from 15-minute turning movement counts, and provides plots. Terminal output prints all hourly rows, grouped by `INTID` then `hour`.
 
-## Assumptions
-- CSV contains a timestamp column (e.g., `datetime`, `timestamp`, `time`, or `date`). The script attempts to auto-detect and parse it.
-- Lane volumes are either:
-  - Long format: columns like `lane` (identifier) and `volume`/`count` for measured vehicles, or
-  - Wide format: multiple numeric columns representing lane counts (e.g., `Lane1`, `Lane2`, `Hwy4`, etc.).
-- Counts can be summed per hour (`--aggregation sum`, default) or averaged (`--aggregation mean`).
+## Scripts
+- `los_calc.py`: Loads the CSV, computes hourly LOS per `INTID`, prints all rows, and saves results to CSV.
+- `los_plots.py`: Generates plots from the same CSV (hourly total volume, daily average volume, and a heatmap).
 
-## LOS Formula
-We compute $v/c$ per lane per hour using an assumed per-lane capacity. Default capacity is `1900 veh/hr/lane`.
+## Input CSV format
+- File includes two header note lines, then the header row: `DATE,TIME,INTID,NBL,NBT,NBR,SBL,SBT,SBR,EBL,EBT,EBR,WBL,WBT,WBR`.
+- Data rows may have a trailing comma; the code drops any unnamed extra column.
+- `TIME` values can be Excel-style (e.g., `="0000"`, `="0015"`); the code normalizes to `HH:MM`.
+- The loader finds the header line, skips only lines before it, and reads with `index_col=False` to ensure `DATE` isn’t used as an index.
 
-LOS tiers by $v/c$:
-- A: $\le 0.35$
-- B: $\le 0.54$
-- C: $\le 0.77$
-- D: $\le 0.93$
-- E: $\le 1.00$
-- F: $> 1.00$
+## LOS logic
+- Movement columns: `NBL,NBT,NBR,SBL,SBT,SBR,EBL,EBT,EBR,WBL,WBT,WBR`.
+- Per 15-minute interval:
+  - `total_volume = sum(movement columns)`
+  - LOS by volume threshold:
+    - A ≤ 600, B ≤ 900, C ≤ 1200, D ≤ 1500, E ≤ 1800, F > 1800
+  - Map LOS to score: A=1, B=2, C=3, D=4, E=5, F=6
+- Per hour per `INTID`:
+  - Average the four 15-minute `los_score` values in that hour
+  - Round to nearest integer; map back to LOS letter
+- Output is sorted by `INTID`, then `hour`.
 
-These thresholds are heuristic and intended for quick screening. Adjust capacity using `--capacity` to reflect local conditions.
-
-## Quick Start (macOS, zsh)
+## Setup (macOS, zsh)
 
 ```zsh
-# From the workspace folder
+cd /Users/kshrugal/Desktop/Traffic_Los
 python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install --upgrade pip
+pip install --upgrade pip
 pip install -r requirements.txt
-
-# Option 1: Original lane-based analyzer
-python analyze_traffic_los.py "VehicleVolume_1Wal_2Hwy_4Hwy_11162025_11222025.csv" \
-  --capacity 1900 \
-  --aggregation sum \
-  --out los_results.csv
-
-# Option 2: Hourly LOS by intersection with plots
-python los_by_intersection.py \
-  --csv "VehicleVolume_1Wal_2Hwy_4Hwy_11162025_11222025.csv" \
-  --out "los_by_intersection.csv" \
-  --plot-prefix "los"
 ```
 
-- Results preview prints to console; full output saved to `los_results.csv`.
-- Adjust `--capacity` if you have better local capacity estimates.
+## Usage
+
+Compute hourly LOS and print all rows:
+```zsh
+python los_calc.py --csv "VehicleVolume_1Wal_2Hwy_4Hwy_11162025_11222025.csv" --out los_results.csv
+```
+
+Generate plots:
+```zsh
+python los_plots.py --csv "VehicleVolume_1Wal_2Hwy_4Hwy_11162025_11222025.csv" --plot-prefix "los"
+```
+
+## Outputs
+- Terminal: All hourly rows printed as `INTID <id> | <hour> | volume=<sum> | LOS=<letter> | score=<1-6>`.
+- File: `los_results.csv` with columns `INTID,hour,total_volume,LOS,los_score`.
+- Plots:
+  - `los_hourly_volume.png` — Hourly total volume per `INTID`
+  - `los_daily_avg_volume.png` — Average daily total volume per `INTID`
+  - `los_volume_heatmap.png` — Heatmap of total volume (INTID × hour)
 
 ## Notes
-- If the script cannot infer the datetime or lane columns, open the CSV to verify column names and consider renaming them to include `datetime`/`timestamp` and `lane`/`volume`.
-- For custom logic (e.g., speed-based LOS), we can extend the script to incorporate speed and density if present.
+- If parsing fails, verify the CSV has the described header and that the first two lines are notes.
+- `TIME` normalization converts Excel formulas to `HH:MM` before datetime parsing.
+- We use explicit datetime formats (`%m/%d/%Y %H:%M`) and only fall back to generic parsing if needed.
