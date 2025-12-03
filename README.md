@@ -1,17 +1,5 @@
 # Traffic LOS Analysis
 
-
-## Setup (macOS, zsh)
-```zsh
-python3 -m venv .venv
-source .venv/bin/activate
-pip install --upgrade pip
-pip install -r requirements.txt
-```
-
-## Usage
-# Traffic LOS Analysis
-
 This repository computes hourly Level of Service (LOS) per intersection (`INTID`) from 15-minute turning movement data, and provides scripts to summarize worst/best times and average scores. All scripts print clear tables to the terminal and save results to CSV.
 
 ## Components
