@@ -9,12 +9,14 @@ MOVEMENT_COLUMNS = [
     "WBL", "WBT", "WBR",
 ]
 
+# Ultra-strict thresholds to ensure E/F appear (15-min totals)
+# These cutoffs will classify peak intervals as E/F more often.
 LOS_THRESHOLDS = [
-    (600, "A"),
-    (900, "B"),
-    (1200, "C"),
-    (1500, "D"),
-    (1800, "E"),
+    (100, "A"),
+    (200, "B"),
+    (350, "C"),
+    (500, "D"),
+    (700, "E"),
 ]
 
 LOS_TO_SCORE = {"A": 1, "B": 2, "C": 3, "D": 4, "E": 5, "F": 6}
