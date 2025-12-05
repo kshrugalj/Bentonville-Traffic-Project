@@ -4,9 +4,10 @@ This repository computes hourly Level of Service (LOS) per intersection (`INTID`
 
 ## Components
 - `los_calc.py`: Ingests the raw CSV, normalizes timestamps, computes hourly LOS per `INTID`, prints all rows, and saves `los_results.csv`.
-- `worst_los_summary.py`: Summarizes worst LOS times per `INTID`, grouping hours into compact date ranges; saves `worst_los_summary.csv`.
-- `best_los_summary.py`: Summarizes best LOS times per `INTID`, grouping hours into compact date ranges; saves `best_los_summary.csv`.
+- `worst_los_summary.py`: Summarizes worst LOS times per `INTID` showing only unique time-of-day (HH:MM) without dates or repetition; saves `worst_los_summary.csv`.
+- `best_los_summary.py`: Summarizes best LOS times per `INTID` showing only unique time-of-day (HH:MM) without dates or repetition; saves `best_los_summary.csv`.
 - `average_los_by_intersection.py`: Averages hourly LOS scores per `INTID` (no rounding), maps to letters with stricter bands, and saves `average_los_by_intersection.csv`.
+- `plot_intersection_volumes.py`: Generates a single chart with average hourly volumes (hour-of-day 0–23) across all days, one line per intersection color-coded by INTID; saves `plots/intersections_hourly_average.png`.
 
 ## Input CSV Requirements
 - Header row: `DATE,TIME,INTID,NBL,NBT,NBR,SBL,SBT,SBR,EBL,EBT,EBR,WBL,WBT,WBR` (two note lines above are allowed).
@@ -39,11 +40,11 @@ pip install -r requirements.txt
 ```zsh
 python los_calc.py --csv "VehicleVolume_1Wal_2Hwy_4Hwy_11162025_11222025.csv" --out los_results.csv
 ```
-- Worst summary (compact ranges + table):
+- Worst summary (unique times + table):
 ```zsh
 python worst_los_summary.py --source los_results.csv --out worst_los_summary.csv --top 10
 ```
-- Best summary (compact ranges + table):
+- Best summary (unique times + table):
 ```zsh
 python best_los_summary.py --source los_results.csv --out best_los_summary.csv --top 10
 ```
@@ -51,14 +52,21 @@ python best_los_summary.py --source los_results.csv --out best_los_summary.csv -
 ```zsh
 python average_los_by_intersection.py --source los_results.csv --out average_los_by_intersection.csv
 ```
+- Plot average hourly volumes:
+```zsh
+python plot_intersection_volumes.py --csv los_results.csv --outdir plots
+```
 
 ## Outputs
 - Terminal (hourly LOS): `INTID <id> | <hour> | volume=<sum> | LOS=<letter> | score=<1-6>`
+- Terminal (worst/best): `INTID <id> | Worst/Best LOS <letter> (score <1-6>) | Times: HH:MM, HH:MM, ...`
+- Terminal (average): `INTID <id> | AvgHourlyScore <float> | LOS <letter>`
 - Files:
   - `los_results.csv`: `INTID,hour,total_volume,LOS,los_score`
-  - `worst_los_summary.csv`: worst LOS per `INTID` with compact hour ranges
-  - `best_los_summary.csv`: best LOS per `INTID` with compact hour ranges
+  - `worst_los_summary.csv`: worst LOS per `INTID` with unique time-of-day list
+  - `best_los_summary.csv`: best LOS per `INTID` with unique time-of-day list
   - `average_los_by_intersection.csv`: average hourly score and letter per `INTID`
+  - `plots/intersections_hourly_average.png`: single chart with average hourly volumes by hour-of-day (0–23) for INTIDs 1–5 (SW Regional Airport Blvd & SW I ST, Greenhouse & E Centerton Blvd, N Walton & Tiger Blvd, SW 14th ST & SW I ST, SW Regional Airport Blvd & SE Walton Blvd)
 
 ## Notes & Practices
 - Parsing resilience: Explicit format parsing with safe fallbacks; fallback warnings suppressed only when necessary.
