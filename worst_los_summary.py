@@ -131,36 +131,23 @@ def _compress_times(times: List[pd.Timestamp]) -> List[str]:
 
 
 def _format_worst_hours_compact(hour_list: List) -> List[str]:
-    """Group by date and compress consecutive hours; return lines like '- 2025-11-17: 07:00–08:00; 15:00–16:00' or 'All hours'."""
+    """Extract unique times (HH:MM) without dates, sorted and deduplicated."""
     ts_list = [pd.to_datetime(h, errors="coerce") for h in hour_list]
     ts_list = [t for t in ts_list if pd.notna(t)]
     if not ts_list:
         return []
-    # Group by date
-    df = pd.DataFrame({"ts": ts_list})
-    df["date"] = df["ts"].dt.date
-    grouped = df.groupby("date")
-    lines = []
-    all_hours_set = {f"{h:02d}:00" for h in range(24)}
-    for date, g in grouped:
-        # Build set of hour strings
-        time_strs = sorted({f"{t.hour:02d}:{t.minute:02d}" for t in g["ts"]})
-        if set(time_strs) == all_hours_set:
-            lines.append(f"- {date}: All hours")
-            continue
-        # Compress consecutive hours
-        ranges = _compress_times(list(g["ts"]))
-        lines.append(f"- {date}: {'; '.join(ranges)}")
-    return sorted(lines)
+    # Extract unique time-of-day strings
+    time_strs = sorted({f"{t.hour:02d}:{t.minute:02d}" for t in ts_list})
+    # Return as comma-separated string wrapped in a list
+    return [', '.join(time_strs)]
 
 
 def print_summary(per_int: pd.DataFrame, overall: pd.DataFrame) -> None:
     print("Worst LOS per intersection:")
     for _, row in per_int.iterrows():
-        print(f"INTID {row['INTID']} | Worst LOS {row['worst_LOS']} (score {int(row['worst_score'])})")
         lines = _format_worst_hours_compact(row.get("worst_hours_list", []))
-        for line in lines:
-            print(line)
+        times_str = lines[0] if lines else "No data"
+        print(f"INTID {row['INTID']} | Worst LOS {row['worst_LOS']} (score {int(row['worst_score'])}) | Times: {times_str}")
 
     print("\nOverall worst hours across intersections:")
     # Aligned table header

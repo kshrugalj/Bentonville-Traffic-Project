@@ -44,23 +44,15 @@ def _compress_times(times: List[pd.Timestamp]) -> List[str]:
 
 
 def _format_hours_compact(hour_list: List) -> List[str]:
+    """Extract unique times (HH:MM) without dates, sorted and deduplicated."""
     ts_list = [pd.to_datetime(h, errors="coerce") for h in hour_list]
     ts_list = [t for t in ts_list if pd.notna(t)]
     if not ts_list:
         return []
-    df = pd.DataFrame({"ts": ts_list})
-    df["date"] = df["ts"].dt.date
-    grouped = df.groupby("date")
-    lines = []
-    all_hours_set = {f"{h:02d}:00" for h in range(24)}
-    for date, g in grouped:
-        time_strs = sorted({f"{t.hour:02d}:{t.minute:02d}" for t in g["ts"]})
-        if set(time_strs) == all_hours_set:
-            lines.append(f"- {date}: All hours")
-            continue
-        ranges = _compress_times(list(g["ts"]))
-        lines.append(f"- {date}: {'; '.join(ranges)}")
-    return sorted(lines)
+    # Extract unique time-of-day strings
+    time_strs = sorted({f"{t.hour:02d}:{t.minute:02d}" for t in ts_list})
+    # Return as comma-separated string wrapped in a list
+    return [', '.join(time_strs)]
 
 
 def build_per_intersection_best(df: pd.DataFrame) -> pd.DataFrame:
@@ -120,10 +112,9 @@ def build_overall_best(df: pd.DataFrame, top: int = 10) -> pd.DataFrame:
 def print_summary(per_int: pd.DataFrame, overall: pd.DataFrame) -> None:
     print("Best LOS per intersection:")
     for _, row in per_int.iterrows():
-        print(f"INTID {row['INTID']} | Best LOS {row['best_LOS']} (score {int(row['best_score'])})")
         lines = _format_hours_compact(row.get("best_hours_list", []))
-        for line in lines:
-            print(line)
+        times_str = lines[0] if lines else "No data"
+        print(f"INTID {row['INTID']} | Best LOS {row['best_LOS']} (score {int(row['best_score'])}) | Times: {times_str}")
 
     print("\nOverall best hours across intersections:")
     header = f"{'INTID':<6} {'Date':<10} {'Time':<5} {'LOS':<3} {'Score':<5} {'Volume':<7}"
