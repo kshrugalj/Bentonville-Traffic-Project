@@ -1,0 +1,9 @@
+# Bentonville Traffic Project - Python Dependencies
+
+# Data manipulation and analysis
+pandas>=1.3.0
+
+# Visualization and plotting
+matplotlib>=3.3.0
+
+# Note: argparse, os, and sys are part of Python standard library
