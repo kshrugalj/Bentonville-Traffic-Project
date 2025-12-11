@@ -1,6 +1,7 @@
 #!/bin/bash
 # Bentonville Traffic Project - Complete Analysis Pipeline
 # This script runs all analysis steps in sequence
+# Usage: ./run_complete_analysis.sh [CSV_FILE]
 
 set -e  # Exit on any error
 
@@ -14,15 +15,19 @@ GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Default CSV file
-CSV_FILE="VehicleVolume_1Wal_2Hwy_4Hwy_11162025_11222025.csv"
+# Accept CSV file as argument or use default
+CSV_FILE="${1:-VehicleVolume_1Wal_2Hwy_4Hwy_11162025_11222025.csv}"
 
 # Check if CSV exists
 if [ ! -f "$CSV_FILE" ]; then
     echo "Error: Input CSV file not found: $CSV_FILE"
+    echo "Usage: ./run_complete_analysis.sh [CSV_FILE]"
     echo "Please ensure the data file is in the current directory."
     exit 1
 fi
+
+echo "Using CSV file: $CSV_FILE"
+echo ""
 
 # Step 1: Calculate hourly LOS
 echo -e "${BLUE}Step 1/5: Computing hourly Level of Service...${NC}"
@@ -69,3 +74,4 @@ echo "Next steps:"
 echo "  1. Review the terminal output above for key insights"
 echo "  2. Open the CSV files in Excel/Sheets for detailed analysis"
 echo "  3. View plots/intersections_hourly_average.png for visual patterns"
+echo ""
